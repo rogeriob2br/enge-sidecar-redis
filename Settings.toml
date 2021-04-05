@@ -1,0 +1,6 @@
+redis_strategy = "StandAlone"
+redis_hostname = "localhost"
+redis_port = 6379
+redis_uris = "localhost:63790, localhost:63791, localhost:63792"
+log_level = "debug"
+log_output= "console"
