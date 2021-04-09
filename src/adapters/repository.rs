@@ -1,67 +1,59 @@
-use redis::Commands;
-use crate::configs::reader_cfg::SettingsReader;
-use redis::cluster::{cluster_pipe, ClusterClient};
+use redis::{Commands, RedisResult, RedisError};
+use crate::configs::reader_cfg::RedisConfig;
+use redis::cluster::{ ClusterClient};
+use std::collections::{BTreeMap, HashMap};
 
-fn cluster_connect(settings: SettingsReader) ->redis::Connection{
-    let
+pub struct RepoClient{
+    pub db: ClusterClient,
+
+}
+impl RepoClient{
+    pub fn new(settings: &RedisConfig) -> RepoClient{
+        let nodes = &settings.redis_uris;
+        let client = ClusterClient::open(nodes.clone()).unwrap();
+        let repo: RepoClient = RepoClient{
+            db: client,
+        };
+        repo
+    }
+}
+
+pub struct RepoHash{
+    pub value: BTreeMap<String, String>,
+    pub key: String,
+    pub ttl: u32,
+}
+
+impl RepoHash {
+    pub fn set(data: RepoHash, repo_client: RepoClient) -> RedisResult<()>{
+        let mut conn = repo_client.db.get_connection().unwrap();
+        let _: () = redis::cmd("HSET")
+            .arg(data.key).arg(data.ttl)
+            .arg(data.value)
+            .query(&mut conn)
+            .expect("failed to execute HSET");
+        Ok(())
+    }
+    pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoHash>{
+        let mut conn = repo_client.db.get_connection().unwrap();
+        let info: BTreeMap<String, String> = redis::cmd("HGETALL")
+            .arg(&key)
+            .query(&mut conn)
+            .expect("failed to execute HGETALL");
+        let result: RepoHash= RepoHash{
+            key: key,
+            value: info,
+            ttl: 0
+        };
+        Ok(result)
+    }
+
 }
 
 
-fn standalone_connect(settings: SettingsReader) -> redis::Connection {
-    //format - host:port
-    let redis_host_name = settings.redis.redis_hostname;
-    let redis_host_name = settings.redis.redis_port;
-    //let redis_password = env::var("REDIS_PASSWORD").unwrap_or_default();
+fn hash(client: ClusterClient) {
 
-    //if Redis server needs secure connection
-    // let uri_scheme = match env::var("IS_TLS") {
-    //     Ok(_) => "rediss",
-    //     Err(_) => "redis",
-    // };
-
-    let redis_conn_url = format!("redis://{}", redis_host_name);
-    //println!("{}", redis_conn_url);
-
-    redis::Client::open(redis_conn_url)
-        .expect("Invalid connection URL")
-        .get_connection()
-        .expect("failed to connect to Redis")
-}
-
-
-
-fn basics() {
-    let mut conn = connect();
-    println!("******* Running SET, GET, INCR commands *******");
-
-    let _: () = redis::cmd("SET")
-        .arg("foo")
-        .arg("bar")
-        .query(&mut conn)
-        .expect("failed to execute SET for 'foo'");
-
-    let bar: String = redis::cmd("GET")
-        .arg("foo")
-        .query(&mut conn)
-        .expect("failed to execute GET for 'foo'");
-    println!("value for 'foo' = {}", bar);
-
-    //INCR and GET using high-level commands
-    let _: () = conn
-        .incr("counter", 2)
-        .expect("failed to execute INCR for 'counter'");
-
-    let val: i32 = conn
-        .get("counter")
-        .expect("failed to execute GET for 'counter'");
-
-    println!("counter = {}", val);
-}
-
-use std::collections::BTreeMap;
-
-fn hash() {
-    let mut conn = connect();
+    let mut conn = client.get_connection().unwrap();
 
     println!("******* Running HASH commands *******");
 
@@ -81,10 +73,10 @@ fn hash() {
         .query(&mut conn)
         .expect("failed to execute HSET");
 
-    let info: BTreeMap<String, String> = redis::cmd("HGETALL")
-        .arg(format!("{}:{}", prefix, "rust"))
-        .query(&mut conn)
-        .expect("failed to execute HGETALL");
+        let info: BTreeMap<String, String> = redis::cmd("HGETALL")
+            .arg(format!("{}:{}", prefix, "rust"))
+            .query(&mut conn)
+            .expect("failed to execute HGETALL");
 
     println!("info for rust redis driver: {:?}", info);
 
@@ -106,8 +98,7 @@ fn hash() {
     println!("go redis driver repo name: {:?}", repo_name);
 }
 
-fn list() {
-    let mut conn = connect();
+fn list(mut conn: redis::cluster::ClusterConnection) {
     println!("******* Running LIST commands *******");
 
     let list_name = "items";
@@ -141,8 +132,7 @@ fn list() {
     }
 }
 
-fn set() {
-    let mut conn = connect();
+fn set(mut conn: redis::cluster::ClusterConnection) {
     println!("******* Running SET commands *******");
 
     let set_name = "users";
@@ -170,40 +160,3 @@ fn set() {
 }
 
 
-fn sorted_set() {
-    let mut conn = connect();
-    println!("******* Running SORTED SET commands *******");
-
-    let sorted_set = "leaderboard";
-
-    let _: () = redis::cmd("ZADD")
-        .arg(sorted_set)
-        .arg(rand::thread_rng().gen_range(1..10))
-        .arg("player-1")
-        .query(&mut conn)
-        .expect("failed to execute ZADD for 'leaderboard'");
-
-    //add many players
-    for num in 2..=5 {
-        let _: () = conn
-            .zadd(
-                sorted_set,
-                String::from("player-") + &num.to_string(),
-                rand::thread_rng().gen_range(1..10),
-            )
-            .expect("failed to execute ZADD for 'leaderboard'");
-    }
-
-    let count: isize = conn
-        .zcard(sorted_set)
-        .expect("failed to execute ZCARD for 'leaderboard'");
-
-    let leaderboard: Vec<(String, isize)> = conn
-        .zrange_withscores(sorted_set, 0, count - 1)
-        .expect("ZRANGE failed");
-    println!("listing players and scores");
-
-    for item in leaderboard {
-        println!("{} = {}", item.0, item.1)
-    }
-}
