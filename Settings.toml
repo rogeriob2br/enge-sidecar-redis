@@ -1,6 +1,6 @@
 redis_strategy = "StandAlone"
 redis_hostname = "localhost"
 redis_port = 6379
-redis_uris = "localhost:63790, localhost:63791, localhost:63792"
+redis_uris = "localhost:7000, localhost:7001, localhost:7002, localhost:7003, localhost:7004, localhost:7005"
 log_level = "debug"
 log_output= "console"

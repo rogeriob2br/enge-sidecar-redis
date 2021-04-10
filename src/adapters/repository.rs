@@ -21,7 +21,7 @@ impl RepoClient{
 pub struct RepoHash{
     pub value: BTreeMap<String, String>,
     pub key: String,
-    pub ttl: u32,
+    pub ttl: i64,
 }
 
 impl RepoHash {

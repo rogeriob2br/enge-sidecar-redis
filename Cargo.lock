@@ -761,6 +761,7 @@ dependencies = [
  "log",
  "parking_lot 0.10.2",
  "redis 0.20.0",
+ "regex",
  "serde 1.0.125",
  "serde-redis",
  "tokio 0.2.25",
