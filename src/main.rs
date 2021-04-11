@@ -3,22 +3,19 @@ mod configs;
 mod adapters;
 mod domain;
 use crate::configs::reader_cfg::{SettingsReader, RedisConfig};
-use warp::{http, Filter};
-use parking_lot::RwLock;
-use std::collections::{HashMap, BTreeMap};
-use std::sync::Arc;
+
+
 use serde::{Serialize, Deserialize};
-use crate::adapters::repository::{RepoClient, RepoHash};
-use actix_web::{web, App, dev, HttpRequest, HttpServer, Responder, HttpMessage, HttpResponse};
-use std::future::Future;
+
+use actix_web::{web, App, HttpServer, HttpResponse};
+
 
 
 use regex::Regex;
-use actix_web::middleware::errhandlers::{ErrorHandlerResponse, ErrorHandlers};
+
 use crate::domain::request::{Message};
 use crate::service::hash_service::{set_hash, map_payload_to_repo_hash};
-use redis::RedisError;
-use actix_web::http::StatusCode;
+
 
 #[macro_use]
 extern crate lazy_static;
@@ -34,7 +31,6 @@ pub struct Parameters{
 }
 async fn set_key(
     data: web::Data<&RedisConfig>,
-    req: HttpRequest,
     param: web::Query<Parameters>,
     path: web::Path<String>,
     info: web::Json<Message>

@@ -1,12 +1,9 @@
-use crate::adapters;
-use crate::configs;
-use crate::domain;
+
 use crate::configs::reader_cfg::RedisConfig;
 use crate::adapters::repository::{RepoHash, RepoClient};
 use std::collections::BTreeMap;
 use crate::domain::request::{Message};
-use actix_web::HttpResponse;
-use redis::{RedisResult, RedisError};
+use redis::{ RedisError};
 
 pub fn get_hash(settings: &RedisConfig, req: RepoHash) -> BTreeMap<String, String>{
     let repo: RepoClient = RepoClient::new(settings);
