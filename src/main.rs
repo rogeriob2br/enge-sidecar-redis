@@ -54,7 +54,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || App::new()
         .data(redis_config)
         .service(
-            web::resource("/set/{path:*}").route(web::put().to(set_key))
+            web::resource("/set/{path:.*}").route(web::put().to(set_key))
         ) ).bind(("127.0.0.1", 8080))?
         .run()
         .await
@@ -64,8 +64,4 @@ fn get_key_from_path(s: String)-> String{
     let re = Regex::new(r"/").unwrap();
     let result = re.replace_all(s.as_str(), ":");
     result.to_string()
-}
-
-fn redis_fail() -> HttpResponse{
-    HttpResponse::new(StatusCode::BAD_GATEWAY)
 }
