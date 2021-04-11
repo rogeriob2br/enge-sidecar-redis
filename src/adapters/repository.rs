@@ -21,17 +21,26 @@ impl RepoClient{
 pub struct RepoHash{
     pub value: BTreeMap<String, String>,
     pub key: String,
-    pub ttl: i64,
+    pub ttl: usize,
 }
 
 impl RepoHash {
     pub fn set(data: RepoHash, repo_client: RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();
-        let _: () = redis::cmd("HSET")
-            .arg(data.key).arg(data.ttl)
-            .arg(data.value)
+        let _: () = redis::cmd("HMSET")
+            .arg(data.key.clone())
+            .arg(data.value.clone())
             .query(&mut conn)
-            .expect("failed to execute HSET");
+            .expect("failed to execute HMSET");
+        let x:usize = 0;
+        if data.ttl.clone() > x{
+            let _: ()  = redis::cmd("EXPIRE")
+                .arg(data.key.clone())
+                .arg(data.ttl.clone())
+                .query(&mut conn)
+                .expect("failed to execute EXPIRE");
+        }
+
         Ok(())
     }
     pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoHash>{

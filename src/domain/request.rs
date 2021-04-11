@@ -19,5 +19,5 @@ pub struct Message{
     #[serde(rename = "zset")]
     pub m_zset: Option<BTreeMap<String, f32>>,
 
-    pub(crate) ttl: i64
+    pub(crate) ttl: usize
 }

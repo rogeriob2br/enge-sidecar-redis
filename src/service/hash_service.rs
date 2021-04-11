@@ -22,9 +22,10 @@ pub fn set_hash(settings: &RedisConfig, req: RepoHash) -> Result<(), RedisError>
 }
 
 pub fn map_payload_to_repo_hash(m: &Message, k:String) ->RepoHash{
-    let v:Option<BTreeMap<String,String>> = m.m_hash.clone();
+    let v:BTreeMap<String,String>= m.m_hash.clone().unwrap();
+
     RepoHash{
-        value: v.unwrap(),
+        value: v,
         key: k,
         ttl: m.ttl.clone()
     }
