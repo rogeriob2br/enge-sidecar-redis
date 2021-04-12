@@ -1,7 +1,8 @@
-use redis::{Commands, RedisResult};
+use redis::{Commands, RedisResult, FromRedisValue};
 use crate::configs::reader_cfg::RedisConfig;
 use redis::cluster::{ ClusterClient};
 use std::collections::{BTreeMap};
+use serde::de::Unexpected::Str;
 
 pub struct RepoClient{
     pub db: ClusterClient,
@@ -45,13 +46,15 @@ impl RepoHash {
     }
     pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoHash>{
         let mut conn = repo_client.db.get_connection().unwrap();
-        let info: BTreeMap<String, String> = redis::cmd("HGETALL")
+        let mut info: BTreeMap<String, String> = redis::cmd("HGETALL")
             .arg(&key)
             .query(&mut conn)
             .expect("failed to execute HGETALL");
-        let result: RepoHash= RepoHash{
+
+
+        let result: RepoHash = RepoHash{
             key: key,
-            value: info,
+            value: info.clone(),
             ttl: 0
         };
         Ok(result)

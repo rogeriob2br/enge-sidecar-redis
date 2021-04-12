@@ -1,6 +1,6 @@
 redis_strategy = "StandAlone"
-redis_hostname = "localhost"
+redis_hostname = "127.0.0.1"
 redis_port = 6379
-redis_uris = "redis://localhost:7000, redis://localhost:7001, redis://localhost:7002, redis://localhost:7003, redis://localhost:7004, redis://localhost:7005"
+redis_uris = "redis://127.0.0.1:7000, redis://127.0.0.1:7001, redis://127.0.0.1:7002, redis://127.0.0.1:7003, redis://127.0.0.1:7004, redis://127.0.0.1:7005"
 log_level = "debug"
 log_output= "console"
