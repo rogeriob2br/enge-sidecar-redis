@@ -9,7 +9,11 @@ use regex::Regex;
 use crate::domain::request::{Message};
 use crate::service::hash_service::{set_hash, map_payload_to_repo_hash, get_hash, map_repo_hash};
 use std::ptr::null;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use crate::service::string_service::{map_repo_string, get_string, map_payload_to_repo_string, set_string};
+use crate::service::list_service::{get_list, map_payload_to_repo_list, set_list, map_repo_list};
+use crate::service::set_service::{map_repo_set, get_set, map_payload_to_repo_set, set_set};
+use crate::service::zset_service::{set_zset, map_payload_to_repo_zset, get_zset, map_repo_zset};
 
 #[macro_use]
 extern crate lazy_static;
@@ -35,6 +39,18 @@ async fn set_key(
         "hash"=>{
             set_hash(&data,map_payload_to_repo_hash(&info,key )).unwrap()
         }
+        "string"=>{
+            set_string(&data,map_payload_to_repo_string(&info,key )).unwrap()
+        }
+        "list"=>{
+            set_list(&data,map_payload_to_repo_list(&info,key )).unwrap()
+        }
+        "set"=>{
+            set_set(&data,map_payload_to_repo_set(&info,key )).unwrap()
+        }
+        "zset"=>{
+            set_zset(&data,map_payload_to_repo_zset(&info,key )).unwrap()
+        }
         _ =>{}
     };
     HttpResponse::NoContent().body("")
@@ -54,6 +70,38 @@ async fn get_key(
                return HttpResponse::NotFound().body("");
             }else{
                 m.m_hash= Option::from(h);
+            }
+        }
+        "string"=>{
+            let s: String = get_string(&data, map_repo_string(key));
+            if m.m_string.is_none() {
+                return HttpResponse::NotFound().body("");
+            }else{
+                m.m_string= Option::from(s);
+            }
+        }
+        "list"=>{
+            let l: Vec<String> = get_list(&data, map_repo_list(key));
+            if m.m_list.is_none() {
+                return HttpResponse::NotFound().body("");
+            }else{
+                m.m_list= Option::from(l);
+            }
+        }
+        "set"=>{
+            let s: BTreeSet<String> = get_set(&data, map_repo_set(key));
+            if m.m_set.is_none() {
+                return HttpResponse::NotFound().body("");
+            }else{
+                m.m_set= Option::from(s);
+            }
+        }
+        "zset"=>{
+            let z: BTreeMap<String, f32> = get_zset(&data, map_repo_zset(key));
+            if m.m_zset.is_none() {
+                return HttpResponse::NotFound().body("");
+            }else{
+                m.m_zset= Option::from(z);
             }
         }
         _ =>{}

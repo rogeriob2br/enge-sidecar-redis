@@ -1,7 +1,7 @@
 use redis::{Commands, RedisResult, FromRedisValue};
 use crate::configs::reader_cfg::RedisConfig;
 use redis::cluster::{ ClusterClient};
-use std::collections::{BTreeMap};
+use std::collections::{BTreeMap, BTreeSet};
 use serde::de::Unexpected::Str;
 
 pub struct RepoClient{
@@ -24,7 +24,6 @@ pub struct RepoHash{
     pub key: String,
     pub ttl: usize,
 }
-
 impl RepoHash {
     pub fn set(data: RepoHash, repo_client: RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();
@@ -62,113 +61,179 @@ impl RepoHash {
 
 }
 
+pub struct RepoString{
+    pub value: String,
+    pub key: String,
+    pub ttl: usize,
+}
 
-fn hash(client: ClusterClient) {
-
-    let mut conn = client.get_connection().unwrap();
-
-    println!("******* Running HASH commands *******");
-
-    let mut driver: BTreeMap<String, String> = BTreeMap::new();
-    let prefix = "redis-driver";
-
-    driver.insert(String::from("name"), String::from("redis-rs"));
-    driver.insert(String::from("version"), String::from("0.19.0"));
-    driver.insert(
-        String::from("repo"),
-        String::from("https://github.com/mitsuhiko/redis-rs"),
-    );
-
-    let _: () = redis::cmd("HSET")
-        .arg(format!("{}:{}", prefix, "rust"))
-        .arg(driver)
-        .query(&mut conn)
-        .expect("failed to execute HSET");
-
-        let info: BTreeMap<String, String> = redis::cmd("HGETALL")
-            .arg(format!("{}:{}", prefix, "rust"))
+impl RepoString {
+    pub fn set(data: RepoString, repo_client: RepoClient) -> RedisResult<()>{
+        let mut conn = repo_client.db.get_connection().unwrap();
+        let _: () = redis::cmd("SET")
+            .arg(data.key.clone())
+            .arg(data.value.clone())
             .query(&mut conn)
-            .expect("failed to execute HGETALL");
+            .expect("failed to execute SET");
+        let x:usize = 0;
+        if data.ttl.clone() > x{
+            let _: ()  = redis::cmd("EXPIRE")
+                .arg(data.key.clone())
+                .arg(data.ttl.clone())
+                .query(&mut conn)
+                .expect("failed to execute EXPIRE");
+        }
 
-    println!("info for rust redis driver: {:?}", info);
-
-    let _: () = conn
-        .hset_multiple(
-            format!("{}:{}", prefix, "go"),
-            &[
-                ("name", "go-redis"),
-                ("version", "8.4.6"),
-                ("repo", "https://github.com/go-redis/redis"),
-            ],
-        )
-        .expect("failed to execute HSET");
-
-    let repo_name: String = conn
-        .hget(format!("{}:{}", prefix, "go"), "repo")
-        .expect("failed to execute HGET");
-
-    println!("go redis driver repo name: {:?}", repo_name);
-}
-
-fn list(mut conn: redis::cluster::ClusterConnection) {
-    println!("******* Running LIST commands *******");
-
-    let list_name = "items";
-
-    let _: () = redis::cmd("LPUSH")
-        .arg(list_name)
-        .arg("item-1")
-        .query(&mut conn)
-        .expect("failed to execute LPUSH for 'items'");
-
-    let item: String = conn
-        .lpop(list_name)
-        .expect("failed to execute LPOP for 'items'");
-    println!("first item: {}", item);
-
-    let _: () = conn.rpush(list_name, "item-2").expect("RPUSH failed");
-    let _: () = conn.rpush(list_name, "item-3").expect("RPUSH failed");
-
-    let len: isize = conn
-        .llen(list_name)
-        .expect("failed to execute LLEN for 'items'");
-    println!("no. of items in list = {}", len);
-
-    let items: Vec<String> = conn
-        .lrange(list_name, 0, len - 1)
-        .expect("failed to execute LRANGE for 'items'");
-    println!("listing items in list");
-
-    for item in items {
-        println!("item: {}", item)
+        Ok(())
     }
-}
+    pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoString>{
+        let mut conn = repo_client.db.get_connection().unwrap();
+        let mut info: String= redis::cmd("GET")
+            .arg(&key)
+            .query(&mut conn)
+            .expect("failed to execute GET");
 
-fn set(mut conn: redis::cluster::ClusterConnection) {
-    println!("******* Running SET commands *******");
 
-    let set_name = "users";
-
-    let _: () = conn
-        .sadd(set_name, "user1")
-        .expect("failed to execute SADD for 'users'");
-    let _: () = conn
-        .sadd(set_name, "user2")
-        .expect("failed to execute SADD for 'users'");
-
-    let ismember: bool = redis::cmd("SISMEMBER")
-        .arg(set_name)
-        .arg("user1")
-        .query(&mut conn)
-        .expect("failed to execute SISMEMBER for 'users'");
-    println!("does user1 exist in the set? {}", ismember); //true
-
-    let users: Vec<String> = conn.smembers(set_name).expect("failed to execute SMEMBERS");
-    println!("listing users in set"); //true
-
-    for user in users {
-        println!("user: {}", user)
+        let result: RepoString = RepoString{
+            key: key,
+            value: info.clone(),
+            ttl: 0
+        };
+        Ok(result)
     }
+
+}
+
+pub struct RepoList{
+    pub value: Vec<String>,
+    pub key: String,
+    pub ttl: usize,
+}
+
+impl RepoList {
+    pub fn set(data: RepoList, repo_client: RepoClient) -> RedisResult<()>{
+        let mut conn = repo_client.db.get_connection().unwrap();
+        let _: () = redis::cmd("RPUSH")
+            .arg(data.key.clone())
+            .arg(data.value.clone())
+            .query(&mut conn)
+            .expect("failed to execute RPUSH");
+        let x:usize = 0;
+        if data.ttl.clone() > x{
+            let _: ()  = redis::cmd("EXPIRE")
+                .arg(data.key.clone())
+                .arg(data.ttl.clone())
+                .query(&mut conn)
+                .expect("failed to execute EXPIRE");
+        }
+
+        Ok(())
+    }
+    pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoList>{
+        let mut conn = repo_client.db.get_connection().unwrap();
+        let mut info: Vec<String>= redis::cmd("LRANGE")
+            .arg(&key)
+            .arg(0)
+            .arg(-1)
+            .query(&mut conn)
+            .expect("failed to execute GET");
+
+
+        let result: RepoList = RepoList{
+            key: key,
+            value: info.clone(),
+            ttl: 0
+        };
+        Ok(result)
+    }
+
 }
 
 
+pub struct RepoSet{
+    pub value: BTreeSet<String>,
+    pub key: String,
+    pub ttl: usize,
+}
+
+impl RepoSet {
+    pub fn set(data: RepoSet, repo_client: RepoClient) -> RedisResult<()>{
+        let mut conn = repo_client.db.get_connection().unwrap();
+        let _: () = redis::cmd("SADD")
+            .arg(data.key.clone())
+            .arg(data.value.clone())
+            .query(&mut conn)
+            .expect("failed to execute SADD");
+        let x:usize = 0;
+        if data.ttl.clone() > x{
+            let _: ()  = redis::cmd("EXPIRE")
+                .arg(data.key.clone())
+                .arg(data.ttl.clone())
+                .query(&mut conn)
+                .expect("failed to execute EXPIRE");
+        }
+        Ok(())
+    }
+    pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoSet>{
+        let mut conn = repo_client.db.get_connection().unwrap();
+        let mut info: BTreeSet<String>= redis::cmd("SMEMBERS")
+            .arg(&key)
+            .query(&mut conn)
+            .expect("failed to execute GET");
+
+
+        let result: RepoSet = RepoSet{
+            key: key,
+            value: info.clone(),
+            ttl: 0
+        };
+        Ok(result)
+    }
+
+}
+
+
+pub struct RepoZSet{
+    pub value: BTreeMap<String, f32>,
+    pub key: String,
+    pub ttl: usize,
+}
+
+impl RepoZSet {
+    pub fn set(data: RepoZSet, repo_client: RepoClient) -> RedisResult<()>{
+        let mut conn = repo_client.db.get_connection().unwrap();
+        let _: () = redis::cmd("ZADD")
+            .arg(data.key.clone())
+            .arg(data.value.clone())
+            .query(&mut conn)
+            .expect("failed to execute ZADD");
+        let x:usize = 0;
+        if data.ttl.clone() > x{
+            let _: ()  = redis::cmd("EXPIRE")
+                .arg(data.key.clone())
+                .arg(data.ttl.clone())
+                .query(&mut conn)
+                .expect("failed to execute EXPIRE");
+        }
+        Ok(())
+    }
+    pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoZSet>{
+        let mut conn = repo_client.db.get_connection().unwrap();
+        let mut info: BTreeMap<String, f32>= redis::cmd("ZRANGE")
+            .arg(&key)
+            .arg("-inf")
+            .arg("+inf")
+            .arg("WITHSCORES")
+            .query(&mut conn)
+            .expect("failed to execute GET");
+
+
+        let result: RepoZSet = RepoZSet{
+            key,
+            value: info.clone(),
+            ttl: 0
+        };
+        Ok(result)
+    }
+
+}
