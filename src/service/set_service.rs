@@ -6,13 +6,21 @@ use crate::domain::request::{Message};
 use redis::{ RedisError};
 
 pub fn get_set(settings: &RedisConfig, req: RepoSet) -> BTreeSet<String>{
-    let repo: RepoClient = RepoClient::new(settings);
+    let client = RepoClient::new(settings);
+    let repo = RepoClient{
+        db: client.unwrap(),
+
+    };
     let resp = RepoSet::get(req.key,repo).unwrap();
     resp.value
 }
 
 pub fn set_set(settings: &RedisConfig, req: RepoSet) -> Result<(), RedisError> {
-    let repo: RepoClient = RepoClient::new(settings);
+    let client = RepoClient::new(settings);
+    let repo = RepoClient{
+        db: client.unwrap(),
+
+    };
     let resp = RepoSet::set(req,repo);
     resp
 

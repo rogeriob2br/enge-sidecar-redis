@@ -9,13 +9,10 @@ pub struct RepoClient{
 
 }
 impl RepoClient{
-    pub fn new(settings: &RedisConfig) -> RepoClient{
+    pub fn new(settings: &RedisConfig) -> RedisResult<ClusterClient> {
         let nodes = &settings.redis_uris;
-        let client = ClusterClient::open(nodes.clone()).unwrap();
-        let repo: RepoClient = RepoClient{
-            db: client,
-        };
-        repo
+        ClusterClient::open(nodes.clone())
+
     }
 }
 
@@ -27,36 +24,30 @@ pub struct RepoHash{
 impl RepoHash {
     pub fn set(data: RepoHash, repo_client: RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();
-        let _: () = redis::cmd("HMSET")
+       redis::cmd("HMSET")
             .arg(data.key.clone())
             .arg(data.value.clone())
-            .query(&mut conn)
-            .expect("failed to execute HMSET");
-        let x:usize = 0;
-        if data.ttl.clone() > x{
-            let _: ()  = redis::cmd("EXPIRE")
-                .arg(data.key.clone())
-                .arg(data.ttl.clone())
-                .query(&mut conn)
-                .expect("failed to execute EXPIRE");
+            .query(&mut conn)?;
+
+        if data.ttl > 0{
+            redis::cmd("EXPIRE")
+                .arg(data.key)
+                .arg(data.ttl)
+                .query(&mut conn)?;
         }
 
         Ok(())
     }
     pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoHash>{
         let mut conn = repo_client.db.get_connection().unwrap();
-        let mut info: BTreeMap<String, String> = redis::cmd("HGETALL")
+        let info: BTreeMap<String, String> = redis::cmd("HGETALL")
             .arg(&key)
-            .query(&mut conn)
-            .expect("failed to execute HGETALL");
-
-
-        let result: RepoHash = RepoHash{
-            key: key,
-            value: info.clone(),
+            .query(&mut conn)?;
+        Ok(RepoHash{
+            key,
+            value: info,
             ttl: 0
-        };
-        Ok(result)
+        })
     }
 
 }
@@ -70,36 +61,30 @@ pub struct RepoString{
 impl RepoString {
     pub fn set(data: RepoString, repo_client: RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();
-        let _: () = redis::cmd("SET")
+        redis::cmd("SET")
             .arg(data.key.clone())
             .arg(data.value.clone())
-            .query(&mut conn)
-            .expect("failed to execute SET");
-        let x:usize = 0;
-        if data.ttl.clone() > x{
-            let _: ()  = redis::cmd("EXPIRE")
-                .arg(data.key.clone())
-                .arg(data.ttl.clone())
-                .query(&mut conn)
-                .expect("failed to execute EXPIRE");
+            .query(&mut conn)?;
+
+        if data.ttl > 0{
+            redis::cmd("EXPIRE")
+                .arg(data.key)
+                .arg(data.ttl)
+                .query(&mut conn)?;
         }
 
         Ok(())
     }
     pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoString>{
         let mut conn = repo_client.db.get_connection().unwrap();
-        let mut info: String= redis::cmd("GET")
+        let info: String= redis::cmd("GET")
             .arg(&key)
-            .query(&mut conn)
-            .expect("failed to execute GET");
-
-
-        let result: RepoString = RepoString{
-            key: key,
-            value: info.clone(),
+            .query(&mut conn)?;
+        Ok(RepoString{
+            key,
+            value: info,
             ttl: 0
-        };
-        Ok(result)
+        })
     }
 
 }
@@ -113,38 +98,32 @@ pub struct RepoList{
 impl RepoList {
     pub fn set(data: RepoList, repo_client: RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();
-        let _: () = redis::cmd("RPUSH")
+        redis::cmd("RPUSH")
             .arg(data.key.clone())
             .arg(data.value.clone())
-            .query(&mut conn)
-            .expect("failed to execute RPUSH");
-        let x:usize = 0;
-        if data.ttl.clone() > x{
-            let _: ()  = redis::cmd("EXPIRE")
-                .arg(data.key.clone())
-                .arg(data.ttl.clone())
-                .query(&mut conn)
-                .expect("failed to execute EXPIRE");
+            .query(&mut conn)?;
+
+        if data.ttl > 0{
+            redis::cmd("EXPIRE")
+                .arg(data.key)
+                .arg(data.ttl)
+                .query(&mut conn)?;
         }
 
         Ok(())
     }
     pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoList>{
         let mut conn = repo_client.db.get_connection().unwrap();
-        let mut info: Vec<String>= redis::cmd("LRANGE")
+        let info: Vec<String>= redis::cmd("LRANGE")
             .arg(&key)
             .arg(0)
             .arg(-1)
-            .query(&mut conn)
-            .expect("failed to execute GET");
-
-
-        let result: RepoList = RepoList{
-            key: key,
-            value: info.clone(),
+            .query(&mut conn)?;
+        Ok(RepoList{
+            key,
+            value: info,
             ttl: 0
-        };
-        Ok(result)
+        })
     }
 
 }
@@ -159,35 +138,29 @@ pub struct RepoSet{
 impl RepoSet {
     pub fn set(data: RepoSet, repo_client: RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();
-        let _: () = redis::cmd("SADD")
+        redis::cmd("SADD")
             .arg(data.key.clone())
             .arg(data.value.clone())
-            .query(&mut conn)
-            .expect("failed to execute SADD");
-        let x:usize = 0;
-        if data.ttl.clone() > x{
-            let _: ()  = redis::cmd("EXPIRE")
-                .arg(data.key.clone())
-                .arg(data.ttl.clone())
-                .query(&mut conn)
-                .expect("failed to execute EXPIRE");
+            .query(&mut conn)?;
+
+        if data.ttl > 0{
+            redis::cmd("EXPIRE")
+                .arg(data.key)
+                .arg(data.ttl)
+                .query(&mut conn)?;
         }
         Ok(())
     }
     pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoSet>{
         let mut conn = repo_client.db.get_connection().unwrap();
-        let mut info: BTreeSet<String>= redis::cmd("SMEMBERS")
+        let info: BTreeSet<String>= redis::cmd("SMEMBERS")
             .arg(&key)
-            .query(&mut conn)
-            .expect("failed to execute GET");
-
-
-        let result: RepoSet = RepoSet{
-            key: key,
-            value: info.clone(),
+            .query(&mut conn)?;
+        Ok(RepoSet{
+            key,
+            value: info,
             ttl: 0
-        };
-        Ok(result)
+        })
     }
 
 }
@@ -202,38 +175,33 @@ pub struct RepoZSet{
 impl RepoZSet {
     pub fn set(data: RepoZSet, repo_client: RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();
-        let _: () = redis::cmd("ZADD")
+        redis::cmd("ZADD")
             .arg(data.key.clone())
             .arg(data.value.clone())
-            .query(&mut conn)
-            .expect("failed to execute ZADD");
-        let x:usize = 0;
-        if data.ttl.clone() > x{
-            let _: ()  = redis::cmd("EXPIRE")
-                .arg(data.key.clone())
-                .arg(data.ttl.clone())
-                .query(&mut conn)
-                .expect("failed to execute EXPIRE");
+            .query(&mut conn)?;
+
+        if data.ttl > 0{
+            redis::cmd("EXPIRE")
+                .arg(data.key)
+                .arg(data.ttl)
+                .query(&mut conn)?;
         }
         Ok(())
     }
     pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoZSet>{
         let mut conn = repo_client.db.get_connection().unwrap();
-        let mut info: BTreeMap<String, f32>= redis::cmd("ZRANGE")
+        let info: BTreeMap<String, f32>= redis::cmd("ZRANGE")
             .arg(&key)
             .arg("-inf")
             .arg("+inf")
             .arg("WITHSCORES")
-            .query(&mut conn)
-            .expect("failed to execute GET");
+            .query(&mut conn)?;
 
-
-        let result: RepoZSet = RepoZSet{
+        Ok(RepoZSet{
             key,
-            value: info.clone(),
+            value: info,
             ttl: 0
-        };
-        Ok(result)
+        })
     }
 
 }

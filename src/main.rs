@@ -129,3 +129,7 @@ fn get_key_from_path(s: String)-> String{
     let result = re.replace_all(s.as_str(), ":");
     result.to_string()
 }
+
+
+#[cfg(test)]
+mod test;

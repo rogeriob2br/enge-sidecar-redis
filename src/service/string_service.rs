@@ -6,13 +6,21 @@ use crate::domain::request::{Message};
 use redis::{ RedisError};
 
 pub fn get_string(settings: &RedisConfig, req: RepoString) -> String{
-    let repo: RepoClient = RepoClient::new(settings);
+    let client = RepoClient::new(settings);
+    let repo = RepoClient{
+        db: client.unwrap(),
+
+    };
     let resp = RepoString::get(req.key,repo).unwrap();
     resp.value
 }
 
 pub fn set_string(settings: &RedisConfig, req: RepoString) -> Result<(), RedisError> {
-    let repo: RepoClient = RepoClient::new(settings);
+    let client = RepoClient::new(settings);
+    let repo = RepoClient{
+        db: client.unwrap(),
+
+    };
     let resp = RepoString::set(req,repo);
     resp
 
