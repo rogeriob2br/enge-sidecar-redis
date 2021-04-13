@@ -1,7 +1,7 @@
 
 use crate::configs::reader_cfg::RedisConfig;
-use crate::adapters::repository::{RepoList, RepoClient, RepoSet};
-use std::collections::{BTreeMap, BTreeSet};
+use crate::adapters::repository::{RepoList, RepoClient};
+
 use crate::domain::request::{Message};
 use redis::{ RedisError};
 

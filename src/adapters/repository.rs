@@ -1,8 +1,7 @@
-use redis::{Commands, RedisResult, FromRedisValue};
+use redis::{ RedisResult};
 use crate::configs::reader_cfg::RedisConfig;
 use redis::cluster::{ ClusterClient};
 use std::collections::{BTreeMap, BTreeSet};
-use serde::de::Unexpected::Str;
 
 pub struct RepoClient{
     pub db: ClusterClient,
