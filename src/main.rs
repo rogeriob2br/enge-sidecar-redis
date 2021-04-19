@@ -62,40 +62,40 @@ async fn get_key(
     let key: String = get_key_from_path(path.to_string());
     match param.tip.as_str() {
         "hash" => {
-            let h: BTreeMap<String, String> = get_hash(&data, map_repo_hash(key));
-            if m.m_hash.is_none() {
+            let h: BTreeMap<String, String> = get_hash(&data, map_repo_hash(key.clone()));
+            if h.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
                 m.m_hash = Option::from(h);
             }
         }
         "string" => {
-            let s: String = get_string(&data, map_repo_string(key));
-            if m.m_string.is_none() {
+            let s: String = get_string(&data, map_repo_string(key.clone()));
+            if s.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
                 m.m_string = Option::from(s);
             }
         }
         "list" => {
-            let l: Vec<String> = get_list(&data, map_repo_list(key));
-            if m.m_list.is_none() {
+            let l: Vec<String> = get_list(&data, map_repo_list(key.clone()));
+            if l.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
                 m.m_list = Option::from(l);
             }
         }
         "set" => {
-            let s: BTreeSet<String> = get_set(&data, map_repo_set(key));
-            if m.m_set.is_none() {
+            let s: BTreeSet<String> = get_set(&data, map_repo_set(key.clone()));
+            if s.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
                 m.m_set = Option::from(s);
             }
         }
         "zset" => {
-            let z: BTreeMap<String, f32> = get_zset(&data, map_repo_zset(key));
-            if m.m_zset.is_none() {
+            let z: BTreeMap<String, f32> = get_zset(&data, map_repo_zset(key.clone()));
+            if z.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
                 m.m_zset = Option::from(z);
@@ -125,7 +125,7 @@ async fn main() -> std::io::Result<()> {
 
 fn get_key_from_path(s: String) -> String {
     let re = Regex::new(r"/").unwrap();
-    let result = re.replace_all(s.as_str(), ":");
+    let result = re.replace_all(s.as_str(), "::");
     result.to_string()
 }
 
