@@ -20,6 +20,7 @@ pub struct RepoHash{
     pub key: String,
     pub ttl: usize,
 }
+
 impl RepoHash {
     pub fn set(data: RepoHash, repo_client: RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();

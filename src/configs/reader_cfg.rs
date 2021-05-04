@@ -2,6 +2,8 @@ use config;
 use config::Config;
 use std::collections::HashMap;
 
+
+
 #[derive(Clone)]
 pub struct RedisConfig {
     pub redis_strategy: String,
@@ -12,6 +14,7 @@ pub struct RedisConfig {
 
 impl RedisConfig {
     pub fn new(field: HashMap<String, String>) -> RedisConfig {
+
         let mut config: RedisConfig = RedisConfig {
             redis_hostname: "".to_string(),
             redis_strategy: "".to_string(),
@@ -41,7 +44,6 @@ impl RedisConfig {
                 _ => {}
             }
         }
-
         config
     }
 }
@@ -79,9 +81,11 @@ pub struct SettingsReader {
     pub log: LogConfig,
 }
 impl SettingsReader {
-    pub fn new(file_name: &str, app_prefix: &str) -> SettingsReader {
-        let mut hsettings: Config = read_file(file_name);
-        hsettings.merge(read_env(app_prefix)).unwrap();
+    pub fn new(app_prefix: &str) -> SettingsReader {
+        let mut hsettings: Config = read_env(app_prefix);
+
+        //hsettings.merge(read_file(file_name)).unwrap();
+
         let redis: RedisConfig = RedisConfig::new(
             hsettings
                 .clone()
