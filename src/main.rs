@@ -15,13 +15,13 @@ use actix_web::{web, App, HttpResponse, HttpServer};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-//
-// #[macro_use]
-// extern crate lazy_static;
 
-//lazy_static! {
-  //  static ref SETTINGS: SettingsReader = SettingsReader::new("Settings.toml", "");
-//}
+#[macro_use]
+extern crate lazy_static;
+
+lazy_static! {
+   static ref SETTINGS: SettingsReader = SettingsReader::new("app");
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Parameters {
@@ -110,11 +110,12 @@ async fn get_key(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let settimgs: SettingsReader = SettingsReader::new("");
-    let redis_config = settimgs.redis.clone();
+
+
+    let redis_config = &SETTINGS.redis;
 
     HttpServer::new(move || {
-        App::new().data(redis_config.clone()).service(
+        App::new().data(redis_config).service(
             web::resource("/api/keys/{path:.*}")
                 .route(web::put().to(set_key))
                 .route(web::get().to(get_key)),
