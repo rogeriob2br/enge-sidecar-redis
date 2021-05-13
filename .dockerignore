@@ -1,2 +1,3 @@
 build_image.sh
 target
+*.tar
