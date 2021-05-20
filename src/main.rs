@@ -15,12 +15,17 @@ use actix_web::{web, App, HttpResponse, HttpServer};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use crate::adapters::repository::RepoClient;
+use std::sync::{Arc, Mutex};
+use std::ops::Deref;
 
 #[macro_use]
 extern crate lazy_static;
 
 lazy_static! {
    static ref SETTINGS: SettingsReader = SettingsReader::new("app");
+
+
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -30,25 +35,26 @@ pub struct Parameters {
 }
 
 async fn set_key(
-    data: web::Data<&RedisConfig>,
+    data: web::Data<Arc<Mutex<RepoClient>>>,
     param: web::Query<Parameters>,
     path: web::Path<String>,
     info: web::Json<Message>,
 ) -> HttpResponse {
     let key: String = get_key_from_path(path.to_string());
+
     match param.tip.as_str() {
-        "hash" => set_hash(&data, map_payload_to_repo_hash(&info, key)).unwrap(),
-        "string" => set_string(&data, map_payload_to_repo_string(&info, key)).unwrap(),
-        "list" => set_list(&data, map_payload_to_repo_list(&info, key)).unwrap(),
-        "set" => set_set(&data, map_payload_to_repo_set(&info, key)).unwrap(),
-        "zset" => set_zset(&data, map_payload_to_repo_zset(&info, key)).unwrap(),
+        "hash" => set_hash(data.lock().unwrap().deref(), map_payload_to_repo_hash(&info, key)).unwrap(),
+        "string" => set_string(data.lock().unwrap().deref(), map_payload_to_repo_string(&info, key)).unwrap(),
+        "list" => set_list(data.lock().unwrap().deref(), map_payload_to_repo_list(&info, key)).unwrap(),
+        "set" => set_set(data.lock().unwrap().deref(), map_payload_to_repo_set(&info, key)).unwrap(),
+        "zset" => set_zset(data.lock().unwrap().deref(), map_payload_to_repo_zset(&info, key)).unwrap(),
         _ => {}
     };
     HttpResponse::NoContent().body("")
 }
 
 async fn get_key(
-    data: web::Data<&RedisConfig>,
+    data: web::Data<Arc<Mutex<RepoClient>>>,
     param: web::Query<Parameters>,
     path: web::Path<String>,
 ) -> HttpResponse {
@@ -61,9 +67,11 @@ async fn get_key(
         ttl: 0,
     };
     let key: String = get_key_from_path(path.to_string());
+
+
     match param.tip.as_str() {
         "hash" => {
-            let h: BTreeMap<String, String> = get_hash(&data, map_repo_hash(key.clone()));
+            let h: BTreeMap<String, String> = get_hash(data.lock().unwrap().deref(), map_repo_hash(key.clone()));
             if h.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -71,7 +79,7 @@ async fn get_key(
             }
         }
         "string" => {
-            let s: String = get_string(&data, map_repo_string(key.clone()));
+            let s: String = get_string(data.lock().unwrap().deref(), map_repo_string(key.clone()));
             if s.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -79,7 +87,7 @@ async fn get_key(
             }
         }
         "list" => {
-            let l: Vec<String> = get_list(&data, map_repo_list(key.clone()));
+            let l: Vec<String> = get_list(data.lock().unwrap().deref(), map_repo_list(key.clone()));
             if l.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -87,7 +95,7 @@ async fn get_key(
             }
         }
         "set" => {
-            let s: BTreeSet<String> = get_set(&data, map_repo_set(key.clone()));
+            let s: BTreeSet<String> = get_set(data.lock().unwrap().deref(), map_repo_set(key.clone()));
             if s.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -95,7 +103,7 @@ async fn get_key(
             }
         }
         "zset" => {
-            let z: BTreeMap<String, f32> = get_zset(&data, map_repo_zset(key.clone()));
+            let z: BTreeMap<String, f32> = get_zset(data.lock().unwrap().deref(), map_repo_zset(key.clone()));
             if z.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -111,11 +119,11 @@ async fn get_key(
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 
-
     let redis_config = &SETTINGS.redis;
+    let client:Arc<Mutex<RepoClient>> = Arc::new(Mutex::new(RepoClient::new(redis_config)));
 
     HttpServer::new(move || {
-        App::new().data(redis_config).service(
+        App::new().data(client.clone()).service(
             web::resource("/api/keys/{path:.*}")
                 .route(web::put().to(set_key))
                 .route(web::get().to(get_key)),

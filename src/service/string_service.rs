@@ -4,22 +4,14 @@ use crate::adapters::repository::{RepoString, RepoClient};
 use crate::domain::request::{Message};
 use redis::{ RedisError};
 
-pub fn get_string(settings: &RedisConfig, req: RepoString) -> String{
-    let client = RepoClient::new(settings);
-    let repo = RepoClient{
-        db: client.unwrap(),
+pub fn get_string(repo: &RepoClient, req: RepoString) -> String{
 
-    };
     let resp = RepoString::get(req.key,repo).unwrap();
     resp.value
 }
 
-pub fn set_string(settings: &RedisConfig, req: RepoString) -> Result<(), RedisError> {
-    let client = RepoClient::new(settings);
-    let repo = RepoClient{
-        db: client.unwrap(),
+pub fn set_string(repo: &RepoClient, req: RepoString) -> Result<(), RedisError> {
 
-    };
     let resp = RepoString::set(req,repo);
     resp
 

@@ -5,22 +5,14 @@ use crate::adapters::repository::{RepoList, RepoClient};
 use crate::domain::request::{Message};
 use redis::{ RedisError};
 
-pub fn get_list(settings: &RedisConfig, req: RepoList) -> Vec<String>{
-    let client = RepoClient::new(settings);
-    let repo = RepoClient{
-        db: client.unwrap(),
+pub fn get_list(repo: &RepoClient, req: RepoList) -> Vec<String>{
 
-    };
     let resp = RepoList::get(req.key,repo).unwrap();
     resp.value
 }
 
-pub fn set_list(settings: &RedisConfig, req: RepoList) -> Result<(), RedisError> {
-    let client = RepoClient::new(settings);
-    let repo = RepoClient{
-        db: client.unwrap(),
+pub fn set_list(repo: &RepoClient, req: RepoList) -> Result<(), RedisError> {
 
-    };
     let resp = RepoList::set(req,repo);
     resp
 

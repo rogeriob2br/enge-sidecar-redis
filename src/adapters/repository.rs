@@ -8,11 +8,13 @@ pub struct RepoClient{
 
 }
 impl RepoClient{
-    pub fn new(settings: &RedisConfig) -> RedisResult<ClusterClient> {
+    pub fn new(settings: &RedisConfig) -> RepoClient{
         let nodes = &settings.redis_uris;
-        ClusterClient::open(nodes.clone())
-
+        RepoClient{
+            db: ClusterClient::open(nodes.clone()).unwrap()
+        }
     }
+
 }
 
 pub struct RepoHash{
@@ -22,7 +24,7 @@ pub struct RepoHash{
 }
 
 impl RepoHash {
-    pub fn set(data: RepoHash, repo_client: RepoClient) -> RedisResult<()>{
+    pub fn set(data: RepoHash, repo_client: &RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();
        redis::cmd("HMSET")
             .arg(data.key.clone())
@@ -38,7 +40,7 @@ impl RepoHash {
 
         Ok(())
     }
-    pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoHash>{
+    pub fn get(key: String, repo_client: &RepoClient)->RedisResult<RepoHash>{
         let mut conn = repo_client.db.get_connection().unwrap();
         let info: BTreeMap<String, String> = redis::cmd("HGETALL")
             .arg(&key)
@@ -59,7 +61,7 @@ pub struct RepoString{
 }
 
 impl RepoString {
-    pub fn set(data: RepoString, repo_client: RepoClient) -> RedisResult<()>{
+    pub fn set(data: RepoString, repo_client: &RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();
         redis::cmd("SET")
             .arg(data.key.clone())
@@ -75,7 +77,7 @@ impl RepoString {
 
         Ok(())
     }
-    pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoString>{
+    pub fn get(key: String, repo_client: &RepoClient)->RedisResult<RepoString>{
         let mut conn = repo_client.db.get_connection().unwrap();
         let info: String= redis::cmd("GET")
             .arg(&key)
@@ -96,7 +98,7 @@ pub struct RepoList{
 }
 
 impl RepoList {
-    pub fn set(data: RepoList, repo_client: RepoClient) -> RedisResult<()>{
+    pub fn set(data: RepoList, repo_client: &RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();
         redis::cmd("RPUSH")
             .arg(data.key.clone())
@@ -112,7 +114,7 @@ impl RepoList {
 
         Ok(())
     }
-    pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoList>{
+    pub fn get(key: String, repo_client: &RepoClient)->RedisResult<RepoList>{
         let mut conn = repo_client.db.get_connection().unwrap();
         let info: Vec<String>= redis::cmd("LRANGE")
             .arg(&key)
@@ -136,7 +138,7 @@ pub struct RepoSet{
 }
 
 impl RepoSet {
-    pub fn set(data: RepoSet, repo_client: RepoClient) -> RedisResult<()>{
+    pub fn set(data: RepoSet, repo_client: &RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();
         redis::cmd("SADD")
             .arg(data.key.clone())
@@ -151,7 +153,7 @@ impl RepoSet {
         }
         Ok(())
     }
-    pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoSet>{
+    pub fn get(key: String, repo_client: &RepoClient)->RedisResult<RepoSet>{
         let mut conn = repo_client.db.get_connection().unwrap();
         let info: BTreeSet<String>= redis::cmd("SMEMBERS")
             .arg(&key)
@@ -173,7 +175,7 @@ pub struct RepoZSet{
 }
 
 impl RepoZSet {
-    pub fn set(data: RepoZSet, repo_client: RepoClient) -> RedisResult<()>{
+    pub fn set(data: RepoZSet, repo_client: &RepoClient) -> RedisResult<()>{
         let mut conn = repo_client.db.get_connection().unwrap();
         redis::cmd("ZADD")
             .arg(data.key.clone())
@@ -188,7 +190,7 @@ impl RepoZSet {
         }
         Ok(())
     }
-    pub fn get(key: String, repo_client: RepoClient)->RedisResult<RepoZSet>{
+    pub fn get(key: String, repo_client: &RepoClient)->RedisResult<RepoZSet>{
         let mut conn = repo_client.db.get_connection().unwrap();
         let info: BTreeMap<String, f32>= redis::cmd("ZRANGE")
             .arg(&key)

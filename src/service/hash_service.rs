@@ -5,23 +5,14 @@ use std::collections::BTreeMap;
 use crate::domain::request::{Message};
 use redis::{ RedisError};
 
-pub fn get_hash(settings: &RedisConfig, req: RepoHash) -> BTreeMap<String, String>{
-    let client = RepoClient::new(settings);
-    let repo = RepoClient{
-        db: client.unwrap(),
-
-    };
+pub fn get_hash(repo: &RepoClient, req: RepoHash) -> BTreeMap<String, String>{
     let resp = RepoHash::get(req.key,repo).unwrap();
 
     resp.value
 }
 
-pub fn set_hash(settings: &RedisConfig, req: RepoHash) -> Result<(), RedisError> {
-    let client = RepoClient::new(settings);
-    let repo = RepoClient{
-        db: client.unwrap(),
+pub fn set_hash(repo: &RepoClient, req: RepoHash) -> Result<(), RedisError> {
 
-    };
     let resp = RepoHash::set(req,repo);
     resp
 

@@ -5,22 +5,14 @@ use std::collections::{ BTreeSet};
 use crate::domain::request::{Message};
 use redis::{ RedisError};
 
-pub fn get_set(settings: &RedisConfig, req: RepoSet) -> BTreeSet<String>{
-    let client = RepoClient::new(settings);
-    let repo = RepoClient{
-        db: client.unwrap(),
+pub fn get_set(repo: &RepoClient,  req: RepoSet) -> BTreeSet<String>{
 
-    };
     let resp = RepoSet::get(req.key,repo).unwrap();
     resp.value
 }
 
-pub fn set_set(settings: &RedisConfig, req: RepoSet) -> Result<(), RedisError> {
-    let client = RepoClient::new(settings);
-    let repo = RepoClient{
-        db: client.unwrap(),
+pub fn set_set(repo: &RepoClient, req: RepoSet) -> Result<(), RedisError> {
 
-    };
     let resp = RepoSet::set(req,repo);
     resp
 
