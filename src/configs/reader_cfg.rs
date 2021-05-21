@@ -1,25 +1,25 @@
 use config;
 use config::Config;
 use std::collections::HashMap;
-
-
+use url::Url;
 
 #[derive(Clone)]
 pub struct RedisConfig {
     pub redis_strategy: String,
     pub redis_hostname: String,
     pub redis_port: u16,
-    pub redis_uris: Vec<String>,
+    pub redis_uris: Vec<Url>,
+    pub redis_pool_size: u8,
 }
 
 impl RedisConfig {
     pub fn new(field: HashMap<String, String>) -> RedisConfig {
-
         let mut config: RedisConfig = RedisConfig {
             redis_hostname: "".to_string(),
             redis_strategy: "".to_string(),
             redis_port: 0,
             redis_uris: vec![],
+            redis_pool_size: 0,
         };
 
         for (k, v) in field.iter() {
@@ -33,11 +33,14 @@ impl RedisConfig {
                 "redis_port" => {
                     config.redis_port = v.parse().unwrap();
                 }
+                "redis_pool_size" => {
+                    config.redis_port = v.parse().unwrap();
+                }
                 "redis_uris" => {
-                    let mut uris: Vec<String> = vec![];
+                    let mut uris: Vec<Url> = vec![];
                     let splited: Vec<&str> = v.split(",").collect();
                     for uri in splited.iter() {
-                        uris.push(uri.to_string());
+                        uris.push(Url::parse(uri).unwrap());
                     }
                     config.redis_uris = uris;
                 }
@@ -47,7 +50,6 @@ impl RedisConfig {
         config
     }
 }
-
 
 pub struct LogConfig {
     pub log_level: String,
@@ -82,7 +84,7 @@ pub struct SettingsReader {
 }
 impl SettingsReader {
     pub fn new(app_prefix: &str) -> SettingsReader {
-        let mut hsettings: Config = read_env(app_prefix);
+        let hsettings: Config = read_env(app_prefix);
 
         //hsettings.merge(read_file(file_name)).unwrap();
 
@@ -101,11 +103,7 @@ impl SettingsReader {
         SettingsReader { redis, log }
     }
 }
-fn read_file(file_name: &str) -> Config {
-    let mut settings = config::Config::default();
-    settings.merge(config::File::with_name(file_name)).unwrap();
-    settings
-}
+
 fn read_env(app_prefix: &str) -> Config {
     let mut settings = config::Config::default();
     settings

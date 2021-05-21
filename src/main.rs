@@ -2,7 +2,8 @@ mod adapters;
 mod configs;
 mod domain;
 mod service;
-use crate::configs::reader_cfg::{RedisConfig, SettingsReader};
+
+use crate::configs::reader_cfg::SettingsReader;
 use crate::domain::request::Message;
 use crate::service::hash_service::{get_hash, map_payload_to_repo_hash, map_repo_hash, set_hash};
 use crate::service::list_service::{get_list, map_payload_to_repo_list, map_repo_list, set_list};
@@ -12,20 +13,21 @@ use crate::service::string_service::{
 };
 use crate::service::zset_service::{get_zset, map_payload_to_repo_zset, map_repo_zset, set_zset};
 use actix_web::{web, App, HttpResponse, HttpServer};
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use crate::adapters::repository::RepoClient;
-use std::sync::{Arc, Mutex};
-use std::ops::Deref;
+
+use redis_cluster_async::{
+    redis::{ Commands},
+    Client,
+};
+use crate::adapters::repository::RepoHash;
+
 
 #[macro_use]
 extern crate lazy_static;
 
 lazy_static! {
-   static ref SETTINGS: SettingsReader = SettingsReader::new("app");
-
-
+    static ref SETTINGS: SettingsReader = SettingsReader::new("app");
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -35,26 +37,35 @@ pub struct Parameters {
 }
 
 async fn set_key(
-    data: web::Data<Arc<Mutex<RepoClient>>>,
+    data: web::Data<Client>,
     param: web::Query<Parameters>,
     path: web::Path<String>,
     info: web::Json<Message>,
 ) -> HttpResponse {
-    let key: String = get_key_from_path(path.to_string());
-
+    let key: String = path.to_string().replace("/", ":");
+    let client = data.get_ref();
+    let conn = client.get_connection().await.unwrap();
     match param.tip.as_str() {
-        "hash" => set_hash(data.lock().unwrap().deref(), map_payload_to_repo_hash(&info, key)).unwrap(),
-        "string" => set_string(data.lock().unwrap().deref(), map_payload_to_repo_string(&info, key)).unwrap(),
-        "list" => set_list(data.lock().unwrap().deref(), map_payload_to_repo_list(&info, key)).unwrap(),
-        "set" => set_set(data.lock().unwrap().deref(), map_payload_to_repo_set(&info, key)).unwrap(),
-        "zset" => set_zset(data.lock().unwrap().deref(), map_payload_to_repo_zset(&info, key)).unwrap(),
-        _ => {}
+        "hash" => {
+            let value: BTreeMap<String, String> = info.m_hash.clone().unwrap();
+            let req = RepoHash {
+                value,
+                key,
+                ttl: info.ttl.clone(),
+            };
+            RepoHash::set(req, conn).await.unwrap();
+        },
+        "string" => set_string(conn, map_payload_to_repo_string(&info, key)).await.unwrap(),
+        "list" => set_list(conn, map_payload_to_repo_list(&info, key)).await.unwrap(),
+        "set" => set_set(conn, map_payload_to_repo_set(&info, key)).await.unwrap(),
+        "zset" => set_zset(conn, map_payload_to_repo_zset(&info, key)).await.unwrap(),
+        _ => {()}
     };
     HttpResponse::NoContent().body("")
 }
 
 async fn get_key(
-    data: web::Data<Arc<Mutex<RepoClient>>>,
+    data: web::Data<Client>,
     param: web::Query<Parameters>,
     path: web::Path<String>,
 ) -> HttpResponse {
@@ -66,12 +77,18 @@ async fn get_key(
         m_zset: None,
         ttl: 0,
     };
-    let key: String = get_key_from_path(path.to_string());
-
+    let key: String = path.to_string().replace("/", ":");;
+    let client = data.get_ref();
+    let conn = client.get_connection().await.unwrap();
 
     match param.tip.as_str() {
         "hash" => {
-            let h: BTreeMap<String, String> = get_hash(data.lock().unwrap().deref(), map_repo_hash(key.clone()));
+            let req = RepoHash {
+                value: Default::default(),
+                key,
+                ttl: 0,
+            };
+            let h: BTreeMap<String, String> = RepoHash::get(req.key, conn).await.unwrap().value;
             if h.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -79,7 +96,7 @@ async fn get_key(
             }
         }
         "string" => {
-            let s: String = get_string(data.lock().unwrap().deref(), map_repo_string(key.clone()));
+            let s: String = get_string(conn, map_repo_string(key.clone())).await;
             if s.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -87,7 +104,7 @@ async fn get_key(
             }
         }
         "list" => {
-            let l: Vec<String> = get_list(data.lock().unwrap().deref(), map_repo_list(key.clone()));
+            let l: Vec<String> = get_list(conn, map_repo_list(key.clone())).await;
             if l.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -95,7 +112,7 @@ async fn get_key(
             }
         }
         "set" => {
-            let s: BTreeSet<String> = get_set(data.lock().unwrap().deref(), map_repo_set(key.clone()));
+            let s: BTreeSet<String> = get_set(conn, map_repo_set(key.clone())).await;
             if s.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -103,7 +120,7 @@ async fn get_key(
             }
         }
         "zset" => {
-            let z: BTreeMap<String, f32> = get_zset(data.lock().unwrap().deref(), map_repo_zset(key.clone()));
+            let z: BTreeMap<String, f32> = get_zset(conn, map_repo_zset(key.clone())).await;
             if z.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -118,9 +135,8 @@ async fn get_key(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-
     let redis_config = &SETTINGS.redis;
-    let client:Arc<Mutex<RepoClient>> = Arc::new(Mutex::new(RepoClient::new(redis_config)));
+    let client = Client::open(redis_config.redis_uris.clone()).unwrap();
 
     HttpServer::new(move || {
         App::new().data(client.clone()).service(
@@ -134,11 +150,7 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-fn get_key_from_path(s: String) -> String {
-    let re = Regex::new(r"/").unwrap();
-    let result = re.replace_all(s.as_str(), "::");
-    result.to_string()
-}
+
 
 #[cfg(test)]
 mod test;
