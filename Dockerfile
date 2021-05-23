@@ -1,32 +1,19 @@
-FROM rust as builder
 
-WORKDIR ./enge-sidecar-redis
-ADD . ./
-RUN ls
-RUN cargo build --release
+FROM ekidd/rust-musl-builder AS builder
 
-FROM debian:buster-slim
-ARG APP=/usr/src/app
+WORKDIR /home/rust/
 
-RUN apt-get update \
-    && apt-get install -y ca-certificates tzdata \
-    && rm -rf /var/lib/apt/lists/*
+RUN USER=rust cargo new enge-sidecar-redis
 
-EXPOSE 8000
+WORKDIR /home/rust/enge-sidecar-redis
 
-ENV TZ=Etc/UTC \
-    APP_USER=appuser
+COPY ./Cargo.lock ./Cargo.lock
+COPY ./Cargo.toml ./Cargo.toml
 
-RUN groupadd $APP_USER \
-    && useradd -g $APP_USER $APP_USER \
-    && mkdir -p ${APP}
+COPY src ./src
+RUN LIB_LDFLAGS=-L/usr/lib/x86_64-linux-gnu CFLAGS=-I/usr/local/musl/include CC=musl-gcc cargo build --release
 
-
-COPY --from=builder /enge-sidecar-redis/target/release/enge-sidecar-redis ${APP}/enge-sidecar-redis
-
-RUN chown -R $APP_USER:$APP_USER ${APP}
-
-USER $APP_USER
-WORKDIR ${APP}
-
+FROM scratch
+COPY --from=builder /home/rust/enge-sidecar-redis/target/x86_64-unknown-linux-musl/release/enge-sidecar-redis .
+USER 1000
 CMD ["./enge-sidecar-redis"]

@@ -1,9 +1,8 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Message{
+pub struct Message {
     #[serde(rename = "hash")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub m_hash: Option<BTreeMap<String, String>>,
@@ -25,5 +24,5 @@ pub struct Message{
     pub m_zset: Option<BTreeMap<String, f32>>,
 
     #[serde(skip_serializing)]
-    pub(crate) ttl: usize
+    pub(crate) ttl: usize,
 }
