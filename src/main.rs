@@ -1,26 +1,24 @@
 mod adapters;
 mod configs;
 mod domain;
-mod service;
+
+
+use mobc_redis_cluster::RedisClusterConnectionManager;
 
 use crate::configs::reader_cfg::SettingsReader;
 use crate::domain::request::Message;
-use crate::service::hash_service::{get_hash, map_payload_to_repo_hash, map_repo_hash, set_hash};
-use crate::service::list_service::{get_list, map_payload_to_repo_list, map_repo_list, set_list};
-use crate::service::set_service::{get_set, map_payload_to_repo_set, map_repo_set, set_set};
-use crate::service::string_service::{
-    get_string, map_payload_to_repo_string, map_repo_string, set_string,
-};
-use crate::service::zset_service::{get_zset, map_payload_to_repo_zset, map_repo_zset, set_zset};
+
 use actix_web::{web, App, HttpResponse, HttpServer};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 use redis_cluster_async::{
-    redis::{ Commands},
     Client,
 };
-use crate::adapters::repository::RepoHash;
+use crate::adapters::repository::{RepoHash, RepoString, RepoList, RepoSet, RepoZSet};
+use std::borrow::Borrow;
+
+type Pool = mobc::Pool<RedisClusterConnectionManager>;
 
 
 #[macro_use]
@@ -37,14 +35,14 @@ pub struct Parameters {
 }
 
 async fn set_key(
-    data: web::Data<Client>,
+    pool: web::Data<Pool>,
     param: web::Query<Parameters>,
     path: web::Path<String>,
     info: web::Json<Message>,
 ) -> HttpResponse {
     let key: String = path.to_string().replace("/", ":");
-    let client = data.get_ref();
-    let conn = client.get_connection().await.unwrap();
+
+
     match param.tip.as_str() {
         "hash" => {
             let value: BTreeMap<String, String> = info.m_hash.clone().unwrap();
@@ -53,19 +51,51 @@ async fn set_key(
                 key,
                 ttl: info.ttl.clone(),
             };
-            RepoHash::set(req, conn).await.unwrap();
+            RepoHash::set(req, pool.borrow()).await.unwrap();
         },
-        "string" => set_string(conn, map_payload_to_repo_string(&info, key)).await.unwrap(),
-        "list" => set_list(conn, map_payload_to_repo_list(&info, key)).await.unwrap(),
-        "set" => set_set(conn, map_payload_to_repo_set(&info, key)).await.unwrap(),
-        "zset" => set_zset(conn, map_payload_to_repo_zset(&info, key)).await.unwrap(),
+        "string" => {
+            let value: String = info.m_string.clone().unwrap();
+            let req = RepoString {
+                value,
+                key,
+                ttl: info.ttl.clone(),
+            };
+            RepoString::set(req, pool.borrow()).await.unwrap();
+        },
+        "list" =>{
+            let value = info.m_list.clone().unwrap();
+            let req = RepoList {
+                value,
+                key,
+                ttl: info.ttl.clone(),
+            };
+            RepoList::set(req, pool.borrow()).await.unwrap();
+        },
+        "set" => {
+            let value = info.m_set.clone().unwrap();
+            let req = RepoSet {
+                value,
+                key,
+                ttl: info.ttl.clone(),
+            };
+            RepoSet::set(req, pool.borrow()).await.unwrap();
+        },
+        "zset" => {
+            let value = info.m_zset.clone().unwrap();
+            let req = RepoZSet{
+                value,
+                key,
+                ttl: info.ttl.clone(),
+            };
+            RepoZSet::set(req, pool.borrow()).await.unwrap();
+        },
         _ => {()}
     };
     HttpResponse::NoContent().body("")
 }
 
 async fn get_key(
-    data: web::Data<Client>,
+    pool: web::Data<Pool>,
     param: web::Query<Parameters>,
     path: web::Path<String>,
 ) -> HttpResponse {
@@ -77,18 +107,11 @@ async fn get_key(
         m_zset: None,
         ttl: 0,
     };
-    let key: String = path.to_string().replace("/", ":");;
-    let client = data.get_ref();
-    let conn = client.get_connection().await.unwrap();
+    let key: String = path.to_string().replace("/", ":");
 
     match param.tip.as_str() {
         "hash" => {
-            let req = RepoHash {
-                value: Default::default(),
-                key,
-                ttl: 0,
-            };
-            let h: BTreeMap<String, String> = RepoHash::get(req.key, conn).await.unwrap().value;
+            let h: BTreeMap<String, String> = RepoHash::get(key, pool.borrow()).await.unwrap().value;
             if h.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -96,7 +119,8 @@ async fn get_key(
             }
         }
         "string" => {
-            let s: String = get_string(conn, map_repo_string(key.clone())).await;
+
+            let s: String = RepoString::get(key, pool.borrow()).await.unwrap().value;
             if s.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -104,7 +128,7 @@ async fn get_key(
             }
         }
         "list" => {
-            let l: Vec<String> = get_list(conn, map_repo_list(key.clone())).await;
+            let l: Vec<String> = RepoList::get(key.clone(), pool.borrow()).await.unwrap().value;
             if l.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -112,7 +136,7 @@ async fn get_key(
             }
         }
         "set" => {
-            let s: BTreeSet<String> = get_set(conn, map_repo_set(key.clone())).await;
+            let s: BTreeSet<String> = RepoSet::get(key.clone(), pool.borrow()).await.unwrap().value;
             if s.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -120,7 +144,7 @@ async fn get_key(
             }
         }
         "zset" => {
-            let z: BTreeMap<String, f32> = get_zset(conn, map_repo_zset(key.clone())).await;
+            let z: BTreeMap<String, f32> = RepoZSet::get(key.clone(), pool.borrow()).await.unwrap().value;
             if z.is_empty() {
                 return HttpResponse::NotFound().body("");
             } else {
@@ -137,15 +161,16 @@ async fn get_key(
 async fn main() -> std::io::Result<()> {
     let redis_config = &SETTINGS.redis;
     let client = Client::open(redis_config.redis_uris.clone()).unwrap();
-
+    let manager = RedisClusterConnectionManager::new(client);
+    let pool = Pool::builder().max_open(100).max_idle(50).build(manager);
     HttpServer::new(move || {
-        App::new().data(client.clone()).service(
+        App::new().data(pool.clone()).service(
             web::resource("/api/keys/{path:.*}")
                 .route(web::put().to(set_key))
                 .route(web::get().to(get_key)),
         )
     })
-    .bind(("0.0.0.0", 8080))?
+    .bind(("0.0.0.0", 8081))?
     .run()
     .await
 }
